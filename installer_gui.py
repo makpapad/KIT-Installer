@@ -602,25 +602,17 @@ class App(tk.Tk):
         self.q = queue.Queue()
         self.q2 = queue.Queue()
         self._build()
-        # set taskbar + title bar icon
+        # set window + taskbar icon via iconphoto (tk native)
         ico = BASE / "icon.ico"
         if ico.exists():
             try:
-                self.iconbitmap(str(ico))
-                # also set via WM_SETICON for the taskbar
-                import ctypes
-                hwnd = self.winfo_id()
-                if hwnd:
-                    hicon = ctypes.windll.user32.LoadImageW(
-                        None, str(ico), 1, 0, 0, 0x00000010 | 0x00008000
-                    )
-                    if hicon:
-                        ctypes.windll.user32.SendMessageW(
-                            hwnd, 0x0080, 1, hicon   # WM_SETICON, ICON_BIG
-                        )
-                        ctypes.windll.user32.SendMessageW(
-                            hwnd, 0x0080, 0, hicon   # WM_SETICON, ICON_SMALL
-                        )
+                from PIL import Image, ImageTk
+                # Use iconphoto instead of iconbitmap — it sets both title bar and taskbar
+                ico_img = Image.open(str(ico))
+                ico_img = ico_img.resize((32, 32), Image.LANCZOS)
+                tk_icon = ImageTk.PhotoImage(ico_img)
+                self.iconphoto(True, tk_icon)
+                self._tk_icon_ref = tk_icon
             except Exception:
                 pass
         self.after(120, self._drain)
@@ -678,16 +670,10 @@ class App(tk.Tk):
         ico = BASE / "icon.ico"
         if ico.exists():
             try:
-                self.iconbitmap(str(ico))
-                import ctypes
-                hwnd = self.winfo_id()
-                if hwnd:
-                    hicon = ctypes.windll.user32.LoadImageW(
-                        None, str(ico), 1, 0, 0, 0x00000010 | 0x00008000
-                    )
-                    if hicon:
-                        ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, hicon)
-                        ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, hicon)
+                from PIL import Image, ImageTk
+                ico_img = Image.open(str(ico)).resize((32, 32), Image.LANCZOS)
+                tk_icon = ImageTk.PhotoImage(ico_img)
+                self.iconphoto(True, tk_icon)
             except Exception:
                 pass
         self.log(self.t["heading"] + " — " + TR[code]["lang_" + code])
