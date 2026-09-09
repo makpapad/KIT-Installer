@@ -1,0 +1,7 @@
+# KIT Installer
+dist/
+build/
+*.spec
+__pycache__/
+*.pyc
+config.json
