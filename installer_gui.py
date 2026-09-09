@@ -535,6 +535,7 @@ class App(tk.Tk):
         self.after(120, self._drain)
         self.after(150, self._drain2)
         self.refresh()
+        self.refresh_dest()
 
     # ── build / rebuild ──
     def _build(self):
@@ -581,6 +582,7 @@ class App(tk.Tk):
         self.q2 = queue.Queue()
         self._build()
         self.refresh()
+        self.refresh_dest()
         self.log(self.t["heading"] + " — " + TR[code]["lang_" + code])
 
     def _build_log(self):
@@ -746,6 +748,7 @@ class App(tk.Tk):
             self.log(self.t["dir_empty"])
             self.log(str(INSTALL_DIR))
         self._rebuild_cards()
+        self.refresh_dest()
 
     def _select_all_card(self):
         for c in self._cards:
