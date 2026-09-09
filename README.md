@@ -5,7 +5,8 @@ A portable Windows app for **offline software installation from USB**.
 Groups installers into categories, extracts icons from the .exe files,
 and runs them silently with one click. Also downloads packages via WinGet.
 
-![Screenshot](screenshot.png)
+![Screenshot 1: Install from USB](screenshot1.png)
+![Screenshot 2: Download from WinGet](screenshot2.png)
 
 ## Features
 

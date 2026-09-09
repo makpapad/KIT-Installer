@@ -602,11 +602,25 @@ class App(tk.Tk):
         self.q = queue.Queue()
         self.q2 = queue.Queue()
         self._build()
-        # set window icon from our .ico file
+        # set taskbar + title bar icon
         ico = BASE / "icon.ico"
         if ico.exists():
             try:
                 self.iconbitmap(str(ico))
+                # also set via WM_SETICON for the taskbar
+                import ctypes
+                hwnd = self.winfo_id()
+                if hwnd:
+                    hicon = ctypes.windll.user32.LoadImageW(
+                        None, str(ico), 1, 0, 0, 0x00000010 | 0x00008000
+                    )
+                    if hicon:
+                        ctypes.windll.user32.SendMessageW(
+                            hwnd, 0x0080, 1, hicon   # WM_SETICON, ICON_BIG
+                        )
+                        ctypes.windll.user32.SendMessageW(
+                            hwnd, 0x0080, 0, hicon   # WM_SETICON, ICON_SMALL
+                        )
             except Exception:
                 pass
         self.after(120, self._drain)
@@ -660,11 +674,20 @@ class App(tk.Tk):
         self._build()
         self.refresh()
         self.refresh_dest()
-        # window icon after rebuild
+        # taskbar + title bar icon after rebuild
         ico = BASE / "icon.ico"
         if ico.exists():
             try:
                 self.iconbitmap(str(ico))
+                import ctypes
+                hwnd = self.winfo_id()
+                if hwnd:
+                    hicon = ctypes.windll.user32.LoadImageW(
+                        None, str(ico), 1, 0, 0, 0x00000010 | 0x00008000
+                    )
+                    if hicon:
+                        ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, hicon)
+                        ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, hicon)
             except Exception:
                 pass
         self.log(self.t["heading"] + " — " + TR[code]["lang_" + code])
