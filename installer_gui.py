@@ -11,26 +11,54 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from PIL import Image, ImageTk, ImageDraw
 
-# ── Icon extraction via ctypes only (no pywin32 needed) ──────
+# ── Icon emoji map + fallback extraction ─────────────────────
+# For known programs we use readable emoji icons instead of
+# extracting (installer wrappers give wrong icons).
+ICON_EMOJI = {
+    "7zip": "🗜", "7-zip": "🗜", "chrome": "🌐", "google": "🌐",
+    "firefox": "🔥", "browser": "🌐", "edge": "🌏",
+    "vlc": "▶", "media player": "🎬", "mpv": "🎬",
+    "libreoffice": "📝", "office": "📝", "onlyoffice": "📝",
+    "sumatra": "📄", "pdf": "📄", "pdfgear": "📄", "foxit": "📄",
+    "anydesk": "🖥", "teamviewer": "🖥", "remote": "🖥",
+    "git": "🔀", "github": "🔀",
+    "python": "🐍", "node": "💚", "npm": "📦",
+    "notepadpp": "📝", "notepad": "✏", "sublime": "✏",
+    "vs code": "💻", "vscode": "💻", "code": "💻",
+    "7z": "🗜", "zip": "🗜", "rar": "🗜",
+    "utorrent": "⚡", "torrent": "⚡",
+    "spotify": "🎵", "music": "🎵",
+    "telegram": "✈", "whatsapp": "💬", "signal": "🔒",
+    "obsidian": "📓", "markdown": "📓", "typora": "📓",
+    "discord": "🎮", "slack": "💬",
+    "paint.net": "🎨", "gimp": "🎨", "photo": "🖼",
+    "bitwarden": "🔑", "keepass": "🔑",
+    "powertoys": "🔧", "tools": "🔧",
+    "audacity": "🎙", "audio": "🎙",
+    "handbrake": "🎞", "video": "🎞",
+    "docker": "🐳", "virtualbox": "📦", "vmware": "📦",
+    "dropbox": "📂", "drive": "☁", "onedrive": "☁",
+    "skype": "📞", "zoom": "📹", "meet": "📹",
+    "adobe": "🎨", "reader": "📄", "acrobat": "📄",
+    "steam": "🎮", "epic": "🎮", "gog": "🎮",
+    "winrar": "🗜", "winzip": "🗜", "peazip": "🗜",
+    "irfanview": "🖼", "xnview": "🖼",
+    "everything": "🔍", "search": "🔍",
+    "greenshot": "📷", "sharex": "📷", "snipping": "📷",
+    "ccleaner": "🧹", "cleaner": "🧹",
+    "cpu-z": "🔬", "gpu-z": "🔬", "hwmonitor": "🔬",
+    "defraggler": "💿", "recuva": "♻",
+    "speedfan": "🌡", "coretemp": "🌡",
+    "windirstat": "📊", "treesize": "📊", "wiztree": "📊",
+    "crystaldisk": "💾", "hd tune": "💾",
+    "imgburn": "💿", "cdburnerxp": "💿",
+    "nail": "💅",
+}
+# Some apps have a more specific emoji by file-keyword
+EMOJI_DEFAULT = "📦"
+
 import ctypes.wintypes as wint
-from ctypes import c_void_p, c_uint, c_int, POINTER, Structure, byref, sizeof, memmove, create_string_buffer
-
-
-class BITMAP(Structure):
-    _fields_ = [("bmType", c_uint), ("bmWidth", c_uint), ("bmHeight", c_uint),
-                ("bmWidthBytes", c_uint), ("bmPlanes", wint.WORD),
-                ("bmBitsPixel", wint.WORD), ("bmBits", c_void_p)]
-
-
-class ICONINFO(Structure):
-    _fields_ = [("fIcon", wint.BOOL), ("xHotspot", wint.DWORD),
-                ("yHotspot", wint.DWORD), ("hbmMask", c_void_p),
-                ("hbmColor", c_void_p)]
-
-
-class RGBQUAD(Structure):
-    _fields_ = [("rgbBlue", wint.BYTE), ("rgbGreen", wint.BYTE),
-                ("rgbRed", wint.BYTE), ("rgbReserved", wint.BYTE)]
+from ctypes import c_void_p, c_uint, c_int, POINTER, Structure, byref, sizeof, create_string_buffer
 
 
 class BITMAPINFOHEADER(Structure):
@@ -43,15 +71,12 @@ class BITMAPINFOHEADER(Structure):
 
 
 class BITMAPINFO(Structure):
-    _fields_ = [("bmiHeader", BITMAPINFOHEADER), ("bmiColors", RGBQUAD * 1)]
+    _fields_ = [("bmiHeader", BITMAPINFOHEADER), ("bmiColors", wint.BYTE * 4)]
 
 
 _gdi32 = ctypes.windll.gdi32
 _user32 = ctypes.windll.user32
 _shell32 = ctypes.windll.shell32
-
-_gdi32.GetObjectW.argtypes = [c_void_p, c_int, c_void_p]
-_gdi32.GetObjectW.restype = c_int
 _gdi32.CreateCompatibleDC.argtypes = [c_void_p]
 _gdi32.CreateCompatibleDC.restype = c_void_p
 _gdi32.CreateCompatibleBitmap.argtypes = [c_void_p, c_int, c_int]
@@ -69,8 +94,6 @@ _user32.GetDC.argtypes = [c_void_p]
 _user32.GetDC.restype = c_void_p
 _user32.ReleaseDC.argtypes = [c_void_p, c_void_p]
 _user32.ReleaseDC.restype = c_int
-_user32.GetIconInfo.argtypes = [c_void_p, POINTER(ICONINFO)]
-_user32.GetIconInfo.restype = wint.BOOL
 _user32.DrawIconEx.argtypes = [c_void_p, c_int, c_int, c_void_p, c_int,
                                 c_int, c_uint, c_void_p, c_uint]
 _user32.DrawIconEx.restype = wint.BOOL
@@ -80,8 +103,39 @@ _shell32.ExtractIconW.argtypes = [c_void_p, wint.LPCWSTR, c_uint]
 _shell32.ExtractIconW.restype = c_void_p
 
 
+def emoji_icon(name_lower, size=48):
+    """Render an emoji as a 48x48 RGBA image for use in tk cards."""
+    emoji = EMOJI_DEFAULT
+    for keyword, e in ICON_EMOJI.items():
+        if keyword in name_lower:
+            emoji = e
+            break
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # try to use a font that supports emoji
+    try:
+        from PIL import ImageFont
+        font = ImageFont.truetype("seguiemj.ttf", 30)
+    except Exception:
+        try:
+            font = ImageFont.truetype("seguiemj.ttf", 30)
+        except Exception:
+            font = ImageFont.truetype("arial.ttf", 28)
+    try:
+        bbox = draw.textbbox((0, 0), emoji, font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        ox = (size - tw) // 2 - bbox[0]
+        oy = (size - th) // 2 - bbox[1]
+        draw.text((ox, oy), emoji, font=font, fill=(50, 50, 70, 255))
+    except Exception:
+        # fallback: just draw the text centered
+        draw.text((size//4, size//4), emoji, fill=(50, 50, 70, 255))
+    return img
+
+
 def extract_icon_pil(filepath, size=48):
-    """Extract first icon from .exe/.dll as a PIL RGBA Image, size×size."""
+    """Extract first icon from .exe/.dll via Shell32 as PIL RGBA, size×size."""
     ext = Path(filepath).suffix.lower()
     if ext not in (".exe", ".dll", ".ico"):
         return None
@@ -92,21 +146,18 @@ def extract_icon_pil(filepath, size=48):
         hdc = _user32.GetDC(None)
         memdc = _gdi32.CreateCompatibleDC(hdc)
         hbmp = _gdi32.CreateCompatibleBitmap(hdc, size, size)
-        old_bmp = _gdi32.SelectObject(memdc, hbmp)
+        _gdi32.SelectObject(memdc, hbmp)
         _user32.DrawIconEx(memdc, 0, 0, hicon, size, size, 0, None, 3)
-        # read bitmap bits via GetDIBits
         bmi = BITMAPINFO()
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER)
         bmi.bmiHeader.biWidth = size
         bmi.bmiHeader.biHeight = -size  # top-down
         bmi.bmiHeader.biPlanes = 1
         bmi.bmiHeader.biBitCount = 32
-        bmi.bmiHeader.biCompression = 0  # BI_RGB
-        row_bytes = size * 4
-        buf = create_string_buffer(row_bytes * size)
+        bmi.bmiHeader.biCompression = 0
+        buf = create_string_buffer(size * 4 * size)
         _gdi32.GetDIBits(memdc, hbmp, 0, size, buf, byref(bmi), 0)
-        # cleanup
-        _gdi32.SelectObject(memdc, old_bmp)
+        _gdi32.SelectObject(memdc, None)
         _gdi32.DeleteObject(hbmp)
         _gdi32.DeleteDC(memdc)
         _user32.ReleaseDC(None, hdc)
@@ -117,12 +168,30 @@ def extract_icon_pil(filepath, size=48):
         return None
 
 
-def make_default_icon(size=48):
-    """Create a grey placeholder icon."""
-    img = Image.new("RGBA", (size, size), (200, 200, 200, 255))
+def make_icon_for(filename, display_name, size=48):
+    """Best-effort icon: emoji for known apps, extraction fallback, then default."""
+    low = (filename + " " + display_name).lower()
+    # try emoji first
+    for keyword in ICON_EMOJI:
+        if keyword in low:
+            try:
+                return emoji_icon(low, size)
+            except Exception:
+                break
+    # fallback: extract from exe
+    p = Path(filename) if isinstance(filename, str) else filename
+    if p.suffix.lower() in (".exe", ".dll"):
+        try:
+            icon = extract_icon_pil(str(p), size)
+            if icon:
+                return icon
+        except Exception:
+            pass
+    # ultimate fallback: bland placeholder
+    img = Image.new("RGBA", (size, size), (220, 220, 225, 255))
     draw = ImageDraw.Draw(img)
-    draw.ellipse([4, 4, size - 4, size - 4], fill=(160, 160, 180, 255))
-    draw.text((size // 2 - 5, size // 2 - 7), "?", fill=(80, 80, 100, 255))
+    draw.ellipse([8, 8, size - 8, size - 8], fill=(180, 180, 195, 255))
+    draw.text((size//2 - 5, size//2 - 7), "?", fill=(100, 100, 120, 255))
     return img
 
 
@@ -364,15 +433,16 @@ _ICON_CACHE: dict[str, ImageTk.PhotoImage] = {}
 _ICON_PIL_CACHE: dict[str, Image.Image] = {}
 
 
-def get_icon_photo(filepath, size=48):
-    """Return an ImageTk.PhotoImage for the given .exe file."""
-    if filepath in _ICON_CACHE:
-        return _ICON_CACHE[filepath]
-    if filepath not in _ICON_PIL_CACHE:
-        pil = extract_icon_pil(filepath, size) or make_default_icon(size)
-        _ICON_PIL_CACHE[filepath] = pil
-    photo = ImageTk.PhotoImage(_ICON_PIL_CACHE[filepath])
-    _ICON_CACHE[filepath] = photo
+def get_icon_photo(filepath, display_name, size=48):
+    """Return an ImageTk.PhotoImage: emoji for known apps, extracted icon otherwise."""
+    key = str(filepath) + "|" + display_name
+    if key in _ICON_CACHE:
+        return _ICON_CACHE[key]
+    if key not in _ICON_PIL_CACHE:
+        pil = make_icon_for(str(filepath), display_name, size)
+        _ICON_PIL_CACHE[key] = pil
+    photo = ImageTk.PhotoImage(_ICON_PIL_CACHE[key])
+    _ICON_CACHE[key] = photo
     return photo
 
 
@@ -444,7 +514,7 @@ class ProgramCard(tk.Frame):
 
         # icon
         try:
-            photo = get_icon_photo(str(filepath), 48)
+            photo = get_icon_photo(str(filepath), self.dname, 48)
             self.icon_lbl = tk.Label(self, image=photo, bg="#fcfaf6")
             self.icon_lbl.image = photo  # keep ref
         except Exception:
@@ -532,6 +602,13 @@ class App(tk.Tk):
         self.q = queue.Queue()
         self.q2 = queue.Queue()
         self._build()
+        # set window icon from our .ico file
+        ico = BASE / "icon.ico"
+        if ico.exists():
+            try:
+                self.iconbitmap(str(ico))
+            except Exception:
+                pass
         self.after(120, self._drain)
         self.after(150, self._drain2)
         self.refresh()
@@ -583,6 +660,13 @@ class App(tk.Tk):
         self._build()
         self.refresh()
         self.refresh_dest()
+        # window icon after rebuild
+        ico = BASE / "icon.ico"
+        if ico.exists():
+            try:
+                self.iconbitmap(str(ico))
+            except Exception:
+                pass
         self.log(self.t["heading"] + " — " + TR[code]["lang_" + code])
 
     def _build_log(self):
