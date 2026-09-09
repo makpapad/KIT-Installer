@@ -1,0 +1,36 @@
+KIT Installer — offline program installation from USB
+===================================================
+
+HOW IT WORKS
+------------
+1. Put installers into subfolders of the "installs" folder:
+     installs\Basic\        (e.g. Chrome, 7-Zip, VLC...)
+     installs\Professional\ (e.g. PDFgear, ONLYOFFICE...)
+   You can create as many subfolders as you want — each becomes a GROUP in the sidebar.
+   Supported files: .exe and .msi.
+
+2. Run KIT-Installer.exe — the list populates automatically from the folder.
+
+3. Check what you want → "INSTALL SELECTED" → everything runs silently, one by one.
+
+NOTES
+-----
+* The program requests administrator rights (required for silent install).
+* Programs marked with "⚠" have no known silent switch — they are skipped
+  until you add their rule to apps.json (see below).
+* The files must be the actual PROGRAM INSTALLERS (not "online stubs").
+
+ADDING A NEW PROGRAM (no need to rebuild the exe)
+--------------------------------------------------
+If a program shows "⚠", find its silent switch (usually /S or /VERYSILENT
+for .exe, or /qn for .msi) and add it to apps.json (next to the exe):
+
+  { "rules": { "pdfgear": ["/VERYSILENT", "/NORESTART"] } }
+
+The key is part of the FILENAME (e.g. "pdfgear" matches "PDFgearSetup.exe").
+Then click "Refresh" to reload.
+
+BUILT-IN SILENT SWITCHES
+------------------------
+7-Zip /S · Chrome (offline) --silent-install · VLC /S · LibreOffice /S
+SumatraPDF /S · AnyDesk /S · any .msi: msiexec /qn automatically
